@@ -85,3 +85,16 @@ train_images, test_images, train_labels, test_labels = train_test_split(
 test_images, val_images, test_labels, val_labels = train_test_split(
     test_images, test_labels, test_size=0.5, random_state=42
 )
+
+# Apply augmentation to the training images
+train_datagen_augmented = ImageDataGenerator(
+    rotation_range=20,
+    width_shift_range=0.2,
+    height_shift_range=0.2,
+    zoom_range=0.2,
+    horizontal_flip=True
+)
+
+train_data_augmented = train_datagen_augmented.flow(
+    train_images, train_labels, batch_size=32
+)

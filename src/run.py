@@ -7,9 +7,15 @@ import matplotlib.pyplot as plt
 from sklearn.utils import shuffle
 from sklearn.model_selection import train_test_split
 import tensorflow as tf
+
+from sklearn.preprocessing import LabelEncoder
+from tensorflow.keras.utils import to_categorical
+
 from tensorflow.keras import layers, models
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from keras.utils import to_categorical
+
+
 
 
 
@@ -86,15 +92,32 @@ test_images, val_images, test_labels, val_labels = train_test_split(
     test_images, test_labels, test_size=0.5, random_state=42
 )
 
-# Apply augmentation to the training images
+
+num_classes = len(set(train_labels))
+print(f"Number of classes: {num_classes}")
+
+# one hot encodeing for train_labels and val_labels
+label_encoder = LabelEncoder()
+train_labels_encoded = label_encoder.fit_transform(train_labels)
+train_labels_one_hot = to_categorical(train_labels_encoded, num_classes=4)
+
+val_labels_encoded = label_encoder.transform(val_labels)
+val_labels_one_hot = to_categorical(val_labels_encoded, num_classes=4)
+
+
+#apply data augmentation 
 train_datagen_augmented = ImageDataGenerator(
-    rotation_range=20,
-    width_shift_range=0.2,
-    height_shift_range=0.2,
-    zoom_range=0.2,
+    rotation_range=10,
+    width_shift_range=0.1,
+    height_shift_range=0.1,
+    zoom_range=0.1,
     horizontal_flip=True
 )
 
 train_data_augmented = train_datagen_augmented.flow(
-    train_images, train_labels, batch_size=32
+    train_images, train_labels_one_hot, batch_size=64
+)
+val_datagen_augmented = ImageDataGenerator()   
+val_data_augmented = val_datagen_augmented.flow(
+    val_images, val_labels_one_hot, batch_size=32
 )

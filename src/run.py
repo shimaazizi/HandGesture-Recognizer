@@ -15,6 +15,26 @@ from tensorflow.keras import layers, models
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from keras.utils import to_categorical
 
+from tensorflow.keras.layers import (
+    Layer,
+    GlobalAveragePooling2D,
+    Conv2D,
+    MaxPool2D,
+    Dense,
+    Flatten,
+    InputLayer,
+    BatchNormalization,
+    Input,
+    Dropout,
+    RandomFlip,
+    RandomRotation,
+    RandomContrast,
+    RandomBrightness,
+    Resizing,
+    Rescaling
+)
+from tensorflow.keras.losses import BinaryCrossentropy, CategoricalCrossentropy, SparseCategoricalCrossentropy
+from tensorflow.keras.optimizers import Adam
 
 
 
@@ -96,7 +116,7 @@ test_images, val_images, test_labels, val_labels = train_test_split(
 num_classes = len(set(train_labels))
 print(f"Number of classes: {num_classes}")
 
-# one hot encodeing for train_labels and val_labels
+# One hot encodeing for train_labels and val_labels
 label_encoder = LabelEncoder()
 train_labels_encoded = label_encoder.fit_transform(train_labels)
 train_labels_one_hot = to_categorical(train_labels_encoded, num_classes=4)
@@ -105,7 +125,7 @@ val_labels_encoded = label_encoder.transform(val_labels)
 val_labels_one_hot = to_categorical(val_labels_encoded, num_classes=4)
 
 
-#apply data augmentation 
+# Apply data augmentation 
 train_datagen_augmented = ImageDataGenerator(
     rotation_range=10,
     width_shift_range=0.1,
@@ -120,4 +140,41 @@ train_data_augmented = train_datagen_augmented.flow(
 val_datagen_augmented = ImageDataGenerator()   
 val_data_augmented = val_datagen_augmented.flow(
     val_images, val_labels_one_hot, batch_size=32
+)
+
+
+# Model
+# transfer learning
+weights_path = "/home/shima/efficientnetv2-b0_notop.h5"
+backbone = tf.keras.applications.EfficientNetV2B0(
+    include_top=False,
+    weights=weights_path,
+    input_shape=(200, 200, 3),
+    include_preprocessing=True
+)
+
+backbone.trainable = False
+
+efficient_model = tf.keras.Sequential([
+    Input(shape=(200, 200, 3)),
+    backbone,
+    GlobalAveragePooling2D(),
+    Dense(1024, activation='relu'),
+    BatchNormalization(),
+    Dense(128, activation='relu'),
+    Dense(4, activation='softmax')
+])
+
+efficient_model.compile(
+    optimizer = Adam(learning_rate=0.001),
+    loss = CategoricalCrossentropy(),
+    metrics=["accuracy"]
+)
+
+# Model Training 
+efficient_history = efficient_model.fit(
+    train_data_augmented,
+    validation_data = val_data_augmented,
+    epochs = 10,
+    verbose = 1
 )

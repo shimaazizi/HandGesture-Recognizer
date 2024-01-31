@@ -12,6 +12,10 @@ from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from keras.utils import to_categorical
 
 
+# Set random seeds for reproducibility
+np.random.seed(42)
+tf.random.set_seed(42)
+
 
 # Load the dataset
 dataset_path = "/home/shima/Dataset"
@@ -119,18 +123,17 @@ train_datagen_augmented = ImageDataGenerator(
 )
 
 train_data_augmented = train_datagen_augmented.flow(
-    train_images, train_labels_one_hot, batch_size=64
+    train_images, train_labels_one_hot, batch_size=64, shuffle=False
 )
 val_datagen_augmented = ImageDataGenerator()  
 val_data_augmented = val_datagen_augmented.flow(
-    val_images, val_labels_one_hot, batch_size=32
+    val_images, val_labels_one_hot, batch_size=32, shuffle=False
 )
 
 
 
 #  create model 
-# Set random seed
-tf.random.set_seed(42)
+
 
 model = models.Sequential()
 model.add(layers.Conv2D(10, (3, 3), activation='relu', input_shape=(200, 200, 3)))
@@ -150,7 +153,7 @@ model.compile(optimizer=optimizer,
 history = model.fit(
     train_data_augmented,
     steps_per_epoch=len(train_images) // 64,  
-    epochs=5,
+    epochs=10,
     validation_data=val_data_augmented
 )
 

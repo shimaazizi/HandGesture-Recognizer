@@ -121,7 +121,7 @@ train_datagen_augmented = ImageDataGenerator(
 train_data_augmented = train_datagen_augmented.flow(
     train_images, train_labels_one_hot, batch_size=64
 )
-val_datagen_augmented = ImageDataGenerator()  # You can specify augmentation parameters if needed
+val_datagen_augmented = ImageDataGenerator()  
 val_data_augmented = val_datagen_augmented.flow(
     val_images, val_labels_one_hot, batch_size=32
 )

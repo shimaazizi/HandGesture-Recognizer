@@ -10,12 +10,10 @@ import tensorflow as tf
 from tensorflow.keras import layers, models
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from keras.utils import to_categorical
+from sklearn.preprocessing import LabelEncoder
+from tensorflow.keras.utils import to_categorical
 from tensorflow import keras
 from sklearn.model_selection import KFold
-
-# Set random seeds for reproducibility
-np.random.seed(42)
-tf.random.set_seed(42)
 
 # Load the dataset
 dataset_path = "/home/shima/Dataset"
@@ -72,7 +70,7 @@ def display(train_images, train_labels, num_images_to_display):
             ax = plt.subplot(1, num_images_to_display, len(displayed_labels) + 1)
             ax.imshow(image)
             ax.set_title(f"Label: {label}")
-            ax.axis('off')  # Turn off axis labels
+            ax.axis('off')  
             displayed_labels.add(label)
 
         if len(displayed_labels) == num_images_to_display:
@@ -102,12 +100,12 @@ print(train_images.shape)
 # Convert the labels to a NumPy array
 train_labels = np.array(train_labels)
 
-# split train images and validation images
+# Split train images and validation images
 train_images, test_images, train_labels, test_labels = train_test_split(
     train_images, train_labels, test_size=0.2, random_state=42  
 )
 
-# Further split the test set into test and validation sets
+# Split the test set into test and validation sets
 test_images, val_images, test_labels, val_labels = train_test_split(
     test_images, test_labels, test_size=0.5, random_state=42
 )
@@ -115,43 +113,61 @@ test_images, val_images, test_labels, val_labels = train_test_split(
 num_classes = len(set(train_labels))
 print(f"Number of classes: {num_classes}")
 
-# one hot encodeing for labels
-from sklearn.preprocessing import LabelEncoder
-from tensorflow.keras.utils import to_categorical
+# One-hot encode the labels
+
+def one_hot_encode_labels(labels, num_classes=4):
+    """
+    One-hot encode the given labels.
+
+    Parameters:
+        labels (array-like): The labels to be one-hot encoded.
+        num_classes (int): The number of classes.
+
+    Returns:
+        numpy.ndarray: The one-hot encoded labels.
+    """
+    label_encoder = LabelEncoder()
+    labels_encoded = label_encoder.fit_transform(labels)
+    labels_one_hot = to_categorical(labels_encoded, num_classes=num_classes)
+    return labels_one_hot
 
 
-label_encoder = LabelEncoder()
-train_labels_encoded = label_encoder.fit_transform(train_labels)
-train_labels_one_hot = to_categorical(train_labels_encoded, num_classes=4)
-print("train_labels_one_hot:")
-print(train_labels_one_hot.shape)
+train_labels_one_hot = one_hot_encode_labels(train_labels)
+val_labels_one_hot = one_hot_encode_labels(val_labels)
+test_labels_one_hot = one_hot_encode_labels(test_labels)
 
-val_labels_encoded = label_encoder.transform(val_labels)
-val_labels_one_hot = to_categorical(val_labels_encoded, num_classes=4)
-print("val_labels_one_hot:")
-print(val_labels_one_hot.shape)
+# Data augmentation
+
+class DataGenerator:
+    def __init__(self, rotation_range=10, width_shift_range=0.1, height_shift_range=0.1, zoom_range=0.1, horizontal_flip=True):
+        self.train_datagen = ImageDataGenerator(
+            rotation_range=rotation_range,
+            width_shift_range=width_shift_range,
+            height_shift_range=height_shift_range,
+            zoom_range=zoom_range,
+            horizontal_flip=horizontal_flip
+        )
+        self.val_datagen = ImageDataGenerator()
+
+    def generate_train_data(self, train_images, train_labels_one_hot, batch_size=64):
+        train_data = self.train_datagen.flow(
+            train_images, train_labels_one_hot, batch_size=batch_size, shuffle=False
+        )
+        return train_data
+
+    def generate_val_data(self, val_images, val_labels_one_hot, batch_size=32):
+        val_data = self.val_datagen.flow(
+            val_images, val_labels_one_hot, batch_size=batch_size, shuffle=False
+        )
+        return val_data
 
 
-test_labels_encoded = label_encoder.transform(test_labels)
-test_labels_one_hot = to_categorical(test_labels_encoded, num_classes=4)
+data_generator = DataGenerator()
+train_data_augmented = data_generator.generate_train_data(train_images, train_labels_one_hot)
+val_data_augmented = data_generator.generate_val_data(val_images, val_labels_one_hot)
 
-train_datagen_augmented = ImageDataGenerator(
-    rotation_range=10,
-    width_shift_range=0.1,
-    height_shift_range=0.1,
-    zoom_range=0.1,
-    horizontal_flip=True
-)
+# Create model
 
-train_data_augmented = train_datagen_augmented.flow(
-    train_images, train_labels_one_hot, batch_size=64, shuffle=False
-)
-val_datagen_augmented = ImageDataGenerator()  
-val_data_augmented = val_datagen_augmented.flow(
-    val_images, val_labels_one_hot, batch_size=32, shuffle=False
-)
-
-# Model
 def create_model():
     model = keras.Sequential([
         layers.Conv2D(64, (3, 3), activation='relu', input_shape=(128, 128, 3)),
@@ -219,31 +235,41 @@ print("Average Validation Loss Across Folds:", avg_loss)
 # Evaluate the model on the test dataset
 test_loss, test_accuracy = model.evaluate(test_images, test_labels_one_hot)
 
-# Define class names
-class_names = ['Fist', 'OpenPalm', 'PeaceSign', 'Thumbsup']
+# Predict labels for test images
 
+def display_and_save_predictions(test_images, predicted_labels, actual_labels, class_names, num_samples=4, filename="prediction.png"):
+    """
+    Display and save some test images with their predicted and actual labels.
+
+    Parameters:
+        test_images (numpy.ndarray): The test images.
+        predicted_labels (numpy.ndarray): The predicted labels.
+        actual_labels (numpy.ndarray): The actual labels.
+        class_names (list): The list of class names.
+        num_samples (int): The number of samples to display.
+        filename (str): The filename to save the figure.
+    """
+    plt.figure(figsize=(10, 10))
+    for i in range(num_samples):
+        plt.subplot(2, 2, i + 1)
+        plt.imshow(test_images[i])
+        plt.title(f"Predicted: {class_names[predicted_labels[i]]}, Actual: {class_names[actual_labels[i]]}",  fontsize=14, fontweight='bold')
+        plt.axis('off')
+
+    plt.tight_layout()
+    
+    # Save the figure to a file
+    plt.savefig(filename)
+    plt.show()
+
+class_names = ['Fist', 'OpenPalm', 'PeaceSign', 'Thumbsup']
 # Predict labels for test images
 predicted_labels = model.predict(test_images)
 predicted_classes = np.argmax(predicted_labels, axis=1)
-
 # Convert one-hot encoded labels back to categorical labels
 actual_labels = np.argmax(test_labels_one_hot, axis=1)
+display_and_save_predictions(test_images, predicted_classes, actual_labels, class_names, num_samples=4, filename="prediction.png")
 
-# Display images alongside predicted and actual labels
-num_images_to_display = min(4, len(test_images))  # Display maximum 4 images or the number of images in the test set
-
-plt.figure(figsize=(10, 10))
-for i in range(num_images_to_display):
-    plt.subplot(2, 2, i + 1)
-    plt.imshow(test_images[i])
-    plt.title(f"Predicted: {class_names[predicted_classes[i]]}, Actual: {class_names[actual_labels[i]]}")
-    plt.axis('off')
-plt.show()
-plt.tight_layout()
-
-# Save the figure to a file
-plt.savefig("prediction.png")
-plt.close()
 
 # plot the accuracy and loss
 

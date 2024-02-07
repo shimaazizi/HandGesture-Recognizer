@@ -10,12 +10,12 @@ import tensorflow as tf
 from tensorflow.keras import layers, models
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from keras.utils import to_categorical
-
+from tensorflow import keras
+from sklearn.model_selection import KFold
 
 # Set random seeds for reproducibility
 np.random.seed(42)
 tf.random.set_seed(42)
-
 
 # Load the dataset
 dataset_path = "/home/shima/Dataset"
@@ -23,61 +23,81 @@ output_directory = "dataset"
 
 gesture_dataset.load_dataset(dataset_path, output_directory)
 
-
-
 def prepare_dataset(output_directory):
     """
     recognize train_images and train_labels
     """
     train_images = []
     train_labels = []
-
+    unique_image_filenames = set()
 
     for image_path in os.listdir(output_directory):
-        image = Image.open(os.path.join(output_directory, image_path))
-        image_array = np.array(image)
-        train_images.append(image_array)
-        train_labels.append(image_path.split("_")[0])
-        
-    return train_images, train_labels
+        if image_path not in unique_image_filenames:
+            image = Image.open(os.path.join(output_directory, image_path))
+            image_array = np.array(image)
+
+            # Extract the class name from the image file name
+            gesture_class = image_path.split("_")[0]
+
+            train_images.append(image_array)
+            train_labels.append(gesture_class)
+            unique_image_filenames.add(image_path)
+
+    return np.array(train_images), np.array(train_labels)
+
         
 
 def display(train_images, train_labels, num_images_to_display):
-    """""
-    Display 4 images before augmentation
-
     """
-    # shuffle
-    train_images, train_labels = shuffle(train_images, train_labels, random_state=42)
+    Display 4 images before augmentation
+    """
+    unique_labels = set(train_labels)
+    print(f"Unique Labels: {unique_labels}")
+    
+    # Shuffle and zip images with labels
+    shuffled_data = list(zip(train_images, train_labels))
+    np.random.shuffle(shuffled_data)
+    
+    # Extract shuffled images and labels
+    shuffled_images, shuffled_labels = zip(*shuffled_data)
+    
     # Create a new figure
     fig, axes = plt.subplots(1, num_images_to_display, figsize=(15, 5))
 
-    for i in range(num_images_to_display):
-    # Display each image in a subplot
-        ax = plt.subplot(1, num_images_to_display, i + 1)
-        ax.imshow(train_images[i])
-        ax.set_title(f"Label: {train_labels[i]}")
-        ax.axis('off')  # Turn off axis labels
+    displayed_labels = set()
+
+    for i, (image, label) in enumerate(zip(shuffled_images, shuffled_labels)):
+        if label not in displayed_labels:
+            # Display each image in a subplot
+            ax = plt.subplot(1, num_images_to_display, len(displayed_labels) + 1)
+            ax.imshow(image)
+            ax.set_title(f"Label: {label}")
+            ax.axis('off')  # Turn off axis labels
+            displayed_labels.add(label)
+
+        if len(displayed_labels) == num_images_to_display:
+            break
+
     plt.show()
     plt.tight_layout()
 
     # Save the figure to a file
     plt.savefig("images.png")
     plt.close()
+
     
 
 # Prepare the dataset
 train_images, train_labels = prepare_dataset(output_directory)
-#print(train_images.shape)
+print("train_images.shape:")
+print(train_images.shape)
 
 # Display the images
 display(train_images, train_labels, num_images_to_display=4)
 
-
-
 # Resize anb Normalization the images
-train_images = np.array([np.array(Image.fromarray(image_array).resize((200, 200))).astype('float32') / 255.0 for image_array in train_images])
-#print(train_images.shape)
+train_images = np.array([np.array(Image.fromarray(image_array).resize((128, 128))).astype('float32') / 255.0 for image_array in train_images])
+print(train_images.shape)
 
 # Convert the labels to a NumPy array
 train_labels = np.array(train_labels)
@@ -92,9 +112,6 @@ test_images, val_images, test_labels, val_labels = train_test_split(
     test_images, test_labels, test_size=0.5, random_state=42
 )
 
-
-
-
 num_classes = len(set(train_labels))
 print(f"Number of classes: {num_classes}")
 
@@ -106,13 +123,17 @@ from tensorflow.keras.utils import to_categorical
 label_encoder = LabelEncoder()
 train_labels_encoded = label_encoder.fit_transform(train_labels)
 train_labels_one_hot = to_categorical(train_labels_encoded, num_classes=4)
-#print("train_labels_one_hot:")
-#print(train_labels_one_hot.shape)
+print("train_labels_one_hot:")
+print(train_labels_one_hot.shape)
 
 val_labels_encoded = label_encoder.transform(val_labels)
 val_labels_one_hot = to_categorical(val_labels_encoded, num_classes=4)
-#print("val_labels_one_hot:")
-#print(val_labels_one_hot.shape)
+print("val_labels_one_hot:")
+print(val_labels_one_hot.shape)
+
+
+test_labels_encoded = label_encoder.transform(test_labels)
+test_labels_one_hot = to_categorical(test_labels_encoded, num_classes=4)
 
 train_datagen_augmented = ImageDataGenerator(
     rotation_range=10,
@@ -130,32 +151,99 @@ val_data_augmented = val_datagen_augmented.flow(
     val_images, val_labels_one_hot, batch_size=32, shuffle=False
 )
 
+# Model
+def create_model():
+    model = keras.Sequential([
+        layers.Conv2D(64, (3, 3), activation='relu', input_shape=(128, 128, 3)),
+        layers.MaxPooling2D(pool_size=(2, 2)),
+        layers.Conv2D(128, (3, 3), activation='relu'),
+        layers.MaxPooling2D(pool_size=(2, 2)),
+        layers.Conv2D(256, (3, 3), activation='relu'),
+        layers.MaxPooling2D(pool_size=(2, 2)),
+        layers.Flatten(),
+        layers.Dropout(0.5),
+        layers.Dense(512, activation='relu', kernel_regularizer=keras.regularizers.l2(0.01)),
+        layers.Dense(4, activation='softmax')
+    ])
+    
+    optimizer = tf.keras.optimizers.Adam(learning_rate=0.0001)
+    model.compile(optimizer=optimizer,
+                  loss='categorical_crossentropy',
+                  metrics=['accuracy'])
+    return model
 
+# Set random seeds for reproducibility
+np.random.seed(42)
+tf.random.set_seed(42)
 
-#  create model 
+# Define the K-fold cross-validation parameters
+k_folds = 5
+epochs = 20
+batch_size = 8
 
+# Perform K-fold cross-validation
+kf = KFold(n_splits=k_folds, shuffle=True)
+fold_accuracy = []
+fold_loss = []
 
-model = models.Sequential()
-model.add(layers.Conv2D(10, (3, 3), activation='relu', input_shape=(200, 200, 3)))
-model.add(layers.MaxPooling2D((2, 2)))
-model.add(layers.Conv2D(10, (3, 3), activation='relu'))
-model.add(layers.MaxPooling2D((2, 2)))
-model.add(layers.Flatten())
-model.add(layers.Dense(10, activation='relu'))
-model.add(layers.Dense(4, activation='softmax'))
+for train_index, val_index in kf.split(train_images):
+    train_images_fold, val_images_fold = train_images[train_index], train_images[val_index]
+    train_labels_fold, val_labels_fold = train_labels_one_hot[train_index], train_labels_one_hot[val_index]
+    
+    model = create_model()
+    
+    # Early stopping
+    early_stopping = keras.callbacks.EarlyStopping(
+        monitor='val_accuracy', patience=5, restore_best_weights=True
+    )
+    
+    history = model.fit(
+        train_images_fold,
+        train_labels_fold,
+        epochs=epochs,
+        batch_size=batch_size,
+        validation_data=(val_images_fold, val_labels_fold),
+        callbacks=[early_stopping]
+    )
+    
+    fold_accuracy.append(history.history['val_accuracy'])
+    fold_loss.append(history.history['val_loss'])
 
+# Calculate average accuracy and loss across folds
+avg_accuracy = np.mean(fold_accuracy, axis=0)
+avg_loss = np.mean(fold_loss, axis=0)
 
-optimizer = tf.keras.optimizers.Adam(learning_rate=0.0001)
-model.compile(optimizer=optimizer,
-              loss='categorical_crossentropy',
-              metrics=['accuracy'])
+print("Average Validation Accuracy Across Folds:", avg_accuracy)
+print("Average Validation Loss Across Folds:", avg_loss)
 
-history = model.fit(
-    train_data_augmented,
-    steps_per_epoch=len(train_images) // 64,  
-    epochs=10,
-    validation_data=val_data_augmented
-)
+# Evaluate the model on the test dataset
+test_loss, test_accuracy = model.evaluate(test_images, test_labels_one_hot)
+
+# Define class names
+class_names = ['Fist', 'OpenPalm', 'PeaceSign', 'Thumbsup']
+
+# Predict labels for test images
+predicted_labels = model.predict(test_images)
+predicted_classes = np.argmax(predicted_labels, axis=1)
+
+# Convert one-hot encoded labels back to categorical labels
+actual_labels = np.argmax(test_labels_one_hot, axis=1)
+
+# Display images alongside predicted and actual labels
+num_images_to_display = min(4, len(test_images))  # Display maximum 4 images or the number of images in the test set
+
+plt.figure(figsize=(10, 10))
+for i in range(num_images_to_display):
+    plt.subplot(2, 2, i + 1)
+    plt.imshow(test_images[i])
+    plt.title(f"Predicted: {class_names[predicted_classes[i]]}, Actual: {class_names[actual_labels[i]]}")
+    plt.axis('off')
+plt.show()
+plt.tight_layout()
+
+# Save the figure to a file
+plt.savefig("prediction.png")
+plt.close()
 
 # plot the accuracy and loss
 
@@ -196,21 +284,3 @@ def plot_and_save_curves(history, filename="curves.png"):
     plt.close()
 
 plot_and_save_curves(history, filename="curves.png")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

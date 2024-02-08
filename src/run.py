@@ -69,7 +69,7 @@ def display(train_images, train_labels, num_images_to_display):
             # Display each image in a subplot
             ax = plt.subplot(1, num_images_to_display, len(displayed_labels) + 1)
             ax.imshow(image)
-            ax.set_title(f"Label: {label}")
+            ax.set_title(f"Label: {label}", fontsize=14, fontweight='bold')
             ax.axis('off')  
             displayed_labels.add(label)
 
@@ -249,9 +249,9 @@ def display_and_save_predictions(test_images, predicted_labels, actual_labels, c
         num_samples (int): The number of samples to display.
         filename (str): The filename to save the figure.
     """
-    plt.figure(figsize=(10, 10))
+    plt.figure(figsize=(20, 8))
     for i in range(num_samples):
-        plt.subplot(2, 2, i + 1)
+        plt.subplot(1, 4, i + 1)
         plt.imshow(test_images[i])
         plt.title(f"Predicted: {class_names[predicted_labels[i]]}, Actual: {class_names[actual_labels[i]]}",  fontsize=14, fontweight='bold')
         plt.axis('off')
@@ -261,8 +261,9 @@ def display_and_save_predictions(test_images, predicted_labels, actual_labels, c
     # Save the figure to a file
     plt.savefig(filename)
     plt.show()
+    plt.close()
 
-class_names = ['Fist', 'OpenPalm', 'PeaceSign', 'Thumbsup']
+class_names = ['Fist', 'OpenPalm', 'PeaceSign', 'ThumbsUp']
 # Predict labels for test images
 predicted_labels = model.predict(test_images)
 predicted_classes = np.argmax(predicted_labels, axis=1)

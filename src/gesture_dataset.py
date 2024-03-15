@@ -12,7 +12,7 @@ def load_dataset(dataset_path, output_directory):
                 image = Image.open(image_path)
 
                 # Process or display the image as needed
-                resized_image = image.resize((200, 200))
+                resized_image = image.resize((128, 128))
 
                 # Create the output directory if it doesn't exist
                 if not os.path.exists(output_directory):

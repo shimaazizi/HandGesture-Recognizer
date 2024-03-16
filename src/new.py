@@ -41,50 +41,12 @@ class CustomDataGenerator(Sequence):
 
         return np.array(batch_images), np.array(batch_labels)
 
-    def display(self, num_images_to_display):
-        """
-        Display 4 images before augmentation
-        """
-        unique_labels = set(self.labels)
-        print(f"Unique Labels: {unique_labels}")
-
-        # Shuffle and zip images with labels
-        shuffled_data = list(zip(self.image_files, self.labels))
-        np.random.shuffle(shuffled_data)
-
-        # Extract shuffled images and labels
-        shuffled_images, shuffled_labels = zip(*shuffled_data)
-
-        # Create a new figure
-        fig, axes = plt.subplots(1, num_images_to_display, figsize=(15, 5))
-
-        displayed_labels = set()
-
-        for i, (image_file, label) in enumerate(zip(shuffled_images, shuffled_labels)):
-            if label not in displayed_labels:
-                # Display each image in a subplot
-                image = Image.open(image_file)
-                ax = plt.subplot(1, num_images_to_display, len(displayed_labels) + 1)
-                ax.imshow(image)
-                ax.set_title(f"Label: {label}", fontsize=14, fontweight='bold')
-                ax.axis('off')
-                displayed_labels.add(label)
-
-            if len(displayed_labels) == num_images_to_display:
-                break
-
-        plt.show()
-        plt.tight_layout()
-
-        # Save the figure to a file
-        plt.savefig("images.png")
-        plt.close()
 
 # ###########################
 dataset_path = "/home/shima/Dataset"
 batch_size = 32
 custom_generator = CustomDataGenerator(dataset_path, batch_size=batch_size)
-custom_generator.display(4)
+
 ###################################
 
 

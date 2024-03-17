@@ -3,6 +3,8 @@ from PIL import Image
 from tensorflow.keras.utils import Sequence
 import numpy as np
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+from tensorflow.keras.utils import to_categorical
 
 class CustomDataGenerator(Sequence):
     def __init__(self, dataset_path, batch_size=32, target_size=(128, 128),
@@ -22,17 +24,21 @@ class CustomDataGenerator(Sequence):
         self.labels = []
         self.classes = sorted(os.listdir(dataset_path))
 
-            # Populate image_files with image file paths
+        # Populate image_files with image file paths and labels
         for gesture_class in self.classes:
             gesture_class_path = os.path.join(self.dataset_path, gesture_class)
             if os.path.isdir(gesture_class_path):
                 for image_file in os.listdir(gesture_class_path):
                     self.image_files.append(os.path.join(gesture_class, image_file))
                     self.labels.append(gesture_class)
-                    
+
         # Split the data into train, validation, and test sets
         self.train_files, self.val_test_files = train_test_split(self.image_files, test_size=val_split + test_split, random_state=42)
         self.val_files, self.test_files = train_test_split(self.val_test_files, test_size=test_split / (val_split + test_split), random_state=42)
+
+        # One-hot encode labels
+        self.label_encoder = LabelEncoder()
+        self.label_encoder.fit(self.labels)
 
     def __len__(self):
         return len(self.train_files) // self.batch_size
@@ -56,7 +62,11 @@ class CustomDataGenerator(Sequence):
             image_array = image_array / 255.0
             batch_images.append(image_array)
 
-        return np.array(batch_images), np.array(batch_labels)
+        # One-hot encode labels
+        batch_labels_encoded = self.label_encoder.transform(batch_labels)
+        batch_labels_one_hot = to_categorical(batch_labels_encoded, num_classes=len(self.classes))
+
+        return np.array(batch_images), np.array(batch_labels_one_hot)
 
     def apply_augmentation(self, image_array):
         # Apply data augmentation
@@ -81,7 +91,12 @@ class CustomDataGenerator(Sequence):
             image_array = np.array(image) / 255.0
             val_images.append(image_array)
             val_labels.append(self.labels[self.image_files.index(image_file)])
-        return np.array(val_images), np.array(val_labels)
+        
+        # One-hot encode validation labels
+        val_labels_encoded = self.label_encoder.transform(val_labels)
+        val_labels_one_hot = to_categorical(val_labels_encoded, num_classes=len(self.classes))
+
+        return np.array(val_images), np.array(val_labels_one_hot)
 
     def get_test_data(self):
         test_images = []
@@ -93,7 +108,12 @@ class CustomDataGenerator(Sequence):
             image_array = np.array(image) / 255.0
             test_images.append(image_array)
             test_labels.append(self.labels[self.image_files.index(image_file)])
-        return np.array(test_images), np.array(test_labels)
+        
+        # One-hot encode test labels
+        test_labels_encoded = self.label_encoder.transform(test_labels)
+        test_labels_one_hot = to_categorical(test_labels_encoded, num_classes=len(self.classes))
+
+        return np.array(test_images), np.array(test_labels_one_hot)
 
 # Example usage
 dataset_path = "/home/shima/Dataset"
@@ -101,6 +121,7 @@ custom_generator = CustomDataGenerator(dataset_path, batch_size=32, target_size=
                                        rotation_range=20, width_shift_range=0.2,
                                        height_shift_range=0.2, zoom_range=0.2, horizontal_flip=True,
                                        val_split=0.1, test_split=0.1)
+
 
 
 

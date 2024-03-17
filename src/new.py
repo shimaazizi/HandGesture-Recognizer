@@ -5,6 +5,11 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from tensorflow.keras.utils import to_categorical
+from tensorflow.keras import layers, models
+import tensorflow as tf
+import matplotlib.pyplot as plt
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+
 
 class CustomDataGenerator(Sequence):
     def __init__(self, dataset_path, batch_size=32, target_size=(128, 128),
@@ -115,12 +120,88 @@ class CustomDataGenerator(Sequence):
 
         return np.array(test_images), np.array(test_labels_one_hot)
 
+def create_model():
+    model = models.Sequential([
+        layers.Conv2D(64, (3, 3), activation='relu', input_shape=(128, 128, 3), strides=2),
+        layers.Dropout(0.5),
+        #layers.MaxPooling2D(pool_size=(2, 2)),
+        layers.Conv2D(128, (3, 3), activation='relu', strides=2),
+        layers.Dropout(0.5),
+        #layers.MaxPooling2D(pool_size=(2, 2)),
+        layers.Conv2D(256, (3, 3), activation='relu', strides=2),
+        layers.Dropout(0.5),
+        #layers.MaxPooling2D(pool_size=(2, 2)),
+        layers.Flatten(),
+        #layers.Dropout(0.5),
+        #layers.Dense(512, activation='relu', kernel_regularizer=keras.regularizers.l2(0.01)),
+        layers.Dense(4, activation='softmax')
+    ])
+    
+    optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
+    model.compile(optimizer=optimizer,
+                  loss='categorical_crossentropy',
+                  metrics=['accuracy'])
+    return model
+
+def plot_and_save_curves(history, filename="curves.png"):
+    """
+    Plots and saves separate loss and accuracy curves for training and validation metrics.
+    """
+    loss = history.history['loss']
+    val_loss = history.history['val_loss']
+
+    accuracy = history.history['accuracy']
+    val_accuracy = history.history['val_accuracy']
+
+    epochs = range(len(history.history['loss']))
+
+    # Plot loss and accuracy on the same figure
+    
+    # Plot loss
+    plt.plot(epochs, loss, label='training_loss')
+    plt.plot(epochs, val_loss, label='val_loss')
+    plt.title('Loss')
+    plt.xlabel('Epochs')
+    plt.legend()
+    
+    plt.savefig(filename.replace(".png", "_loss.png"))
+    plt.close()
+
+    # Plot accuracy
+    plt.figure()
+    plt.plot(epochs, accuracy, label='training_accuracy')
+    plt.plot(epochs, val_accuracy, label='val_accuracy')
+    plt.title('Accuracy')
+    plt.xlabel('Epochs')
+    plt.legend();
+    
+    # Save the figure
+    plt.savefig(filename.replace(".png", "_accuracy.png"))
+    plt.close()
+
 # Example usage
 dataset_path = "/home/shima/Dataset"
 custom_generator = CustomDataGenerator(dataset_path, batch_size=32, target_size=(128, 128),
                                        rotation_range=20, width_shift_range=0.2,
                                        height_shift_range=0.2, zoom_range=0.2, horizontal_flip=True,
                                        val_split=0.1, test_split=0.1)
+
+# Create the model
+model = create_model()
+
+# Train the model
+history = model.fit(custom_generator,
+                    epochs=10,  # Update with desired number of epochs
+                    steps_per_epoch=len(custom_generator),
+                    validation_data=custom_generator.get_validation_data(),
+                    validation_steps=len(custom_generator.get_validation_data()))
+
+# Evaluate the model on the test set
+test_images, test_labels_one_hot = custom_generator.get_test_data()
+test_loss, test_accuracy = model.evaluate(test_images, test_labels_one_hot)
+
+# Plot and save the curves
+plot_and_save_curves(history, filename="curves.png")
 
 
 

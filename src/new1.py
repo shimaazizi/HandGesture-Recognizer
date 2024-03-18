@@ -10,6 +10,9 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.applications import ResNet50
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import GlobalAveragePooling2D, Dense, Dropout
+from tensorflow.keras.optimizers import Adam
 
 
 class CustomDataGenerator(Sequence):
@@ -120,18 +123,24 @@ class CustomDataGenerator(Sequence):
         test_labels_one_hot = to_categorical(test_labels_encoded, num_classes=len(self.classes))
 
         return np.array(test_images), np.array(test_labels_one_hot)
-
-def create_model():
-    base_model = ResNet50(weights=None, include_top=False, input_shape=(128, 128, 3))
+    
+    
+weights_path = "/home/shima/resnet50_weights_tf_dim_ordering_tf_kernels.h5"
+def create_transfer_learning_model(num_classes):
+    base_model = ResNet50(weights=weights_path, include_top=False, input_shape=(128, 128, 3))
     x = base_model.output
-    x = layers.GlobalAveragePooling2D()(x)
-    x = layers.Dense(512, activation='relu')(x)
-    x = layers.Dropout(0.5)(x)
-    predictions = layers.Dense(4, activation='softmax')(x)
+    x = GlobalAveragePooling2D()(x)
+    x = Dense(512, activation='relu')(x)
+    x = Dropout(0.5)(x)
+    predictions = Dense(num_classes, activation='softmax')(x)
     
-    model = models.Model(inputs=base_model.input, outputs=predictions)
+    model = Model(inputs=base_model.input, outputs=predictions)
     
-    optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
+    # Freeze the layers of the pre-trained model
+    for layer in base_model.layers:
+        layer.trainable = False
+    
+    optimizer = Adam(learning_rate=0.001)
     model.compile(optimizer=optimizer,
                   loss='categorical_crossentropy',
                   metrics=['accuracy'])
@@ -181,7 +190,8 @@ custom_generator = CustomDataGenerator(dataset_path, batch_size=32, target_size=
                                        val_split=0.1, test_split=0.1)
 
 # Create the model
-model = create_model()
+num_classes = 4  # Update with the number of classes in your dataset
+model = create_transfer_learning_model(num_classes)
 
 # Train the model
 history = model.fit(custom_generator,
@@ -189,6 +199,7 @@ history = model.fit(custom_generator,
                     steps_per_epoch=len(custom_generator),
                     validation_data=custom_generator.get_validation_data(),
                     validation_steps=len(custom_generator.get_validation_data()))
+
 
 # Evaluate the model on the test set
 test_images, test_labels_one_hot = custom_generator.get_test_data()

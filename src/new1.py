@@ -125,9 +125,9 @@ class CustomDataGenerator(Sequence):
         return np.array(test_images), np.array(test_labels_one_hot)
     
     
-weights_path = "/home/shima/resnet50_weights_tf_dim_ordering_tf_kernels.h5"
+#weights_path = "/home/shima/resnet50_weights_tf_dim_ordering_tf_kernels.h5"
 def create_transfer_learning_model(num_classes):
-    base_model = ResNet50(weights=weights_path, include_top=False, input_shape=(128, 128, 3))
+    base_model = ResNet50(weights='imagenet', include_top=False, input_shape=(128, 128, 3))
     x = base_model.output
     x = GlobalAveragePooling2D()(x)
     x = Dense(512, activation='relu')(x)

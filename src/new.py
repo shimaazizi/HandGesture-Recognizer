@@ -241,13 +241,13 @@ model = create_model()
 
 # Train the model
 history = model.fit(train_generator,
-                    epochs=10,  # Update with desired number of epochs
+                    epochs=32,  
                     steps_per_epoch=len(train_generator),
                     validation_data=val_generator,
                     validation_steps=len(val_generator))
 
 # Evaluate the model on the test set
-test_images, test_labels_one_hot = train_generator.get_test_data()  # Using train_generator for consistency
+test_images, test_labels_one_hot = train_generator.get_test_data()  
 test_loss, test_accuracy = model.evaluate(test_images, test_labels_one_hot)
 
 # Plot and save the curves

@@ -241,7 +241,7 @@ model = create_model()
 
 # Train the model
 history = model.fit(train_generator,
-                    epochs=32,  
+                    epochs=10,  
                     steps_per_epoch=len(train_generator),
                     validation_data=val_generator,
                     validation_steps=len(val_generator))

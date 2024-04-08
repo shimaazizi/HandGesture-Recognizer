@@ -84,6 +84,23 @@ class CustomDataGeneratorTrain(Sequence):
     def on_epoch_end(self):
         np.random.shuffle(self.train_files)
 
+    def get_train_data(self):
+        train_images = []
+        train_labels = []
+        for image_file in self.train_files:
+            image_path = os.path.join(self.dataset_path, image_file)
+            image = Image.open(image_path)
+            image = image.resize(self.target_size)
+            image_array = np.array(image) / 255.0
+            train_images.append(image_array)
+            train_labels.append(self.labels[self.image_files.index(image_file)])
+        
+        # One-hot encode train labels
+        train_labels_encoded = self.label_encoder.transform(train_labels)
+        train_labels_one_hot = to_categorical(train_labels_encoded, num_classes=len(self.classes))
+
+        return np.array(train_images), np.array(train_labels_one_hot)
+    
     def get_test_data(self):
         test_images = []
         test_labels = []
@@ -249,6 +266,10 @@ history = model.fit(train_generator,
 # Evaluate the model on the test set
 test_images, test_labels_one_hot = train_generator.get_test_data()  
 test_loss, test_accuracy = model.evaluate(test_images, test_labels_one_hot)
+
+# Evaluate the model on the training set
+train_images, train_labels_one_hot = train_generator.get_train_data()
+train_loss, train_accuracy = model.evaluate(train_images, train_labels_one_hot)
 
 # Plot and save the curves
 plot_and_save_curves(history, filename="curves.png")

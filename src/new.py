@@ -264,12 +264,45 @@ history = model.fit(train_generator,
                     validation_steps=len(val_generator))
 
 # Evaluate the model on the test set
-test_images, test_labels_one_hot = train_generator.get_test_data()  
+test_images, test_labels_one_hot = train_generator.get_test_data()
+print("Evaluate on test data:")  
 test_loss, test_accuracy = model.evaluate(test_images, test_labels_one_hot)
 
+# Get the original class labels
+test_labels = [train_generator.labels[train_generator.image_files.index(file)] for file in train_generator.test_files]
+
+# Count the number of pictures in each class
+class_counts = {}
+for label in train_generator.classes:
+    class_counts[label] = test_labels.count(label)
+
+print("Number of pictures in each class in the test data:")
+for label, count in class_counts.items():
+    print(f"{label}: {count}")
+
+
 # Evaluate the model on the training set
-train_images, train_labels_one_hot = train_generator.get_train_data()
-train_loss, train_accuracy = model.evaluate(train_images, train_labels_one_hot)
+print("Evaluate on train data:")
+train_loss, train_accuracy = model.evaluate(train_generator)
+
+# Get the original class labels for the training data
+train_labels = [train_generator.labels[train_generator.image_files.index(file)] for file in train_generator.train_files]
+
+# Count the number of pictures in each class
+class_counts_train = {}
+for label in train_generator.classes:
+    class_counts_train[label] = train_labels.count(label)
+
+print("Number of pictures in each class in the training data:")
+for label, count in class_counts_train.items():
+    print(f"{label}: {count}")
+
+# Determine the number of train and validation data
+num_train_data = len(train_generator.image_files)
+num_val_data = len(val_generator.image_files)
+
+print(f"Number of train data: {num_train_data}")
+print(f"Number of validation data: {num_val_data}")
 
 # Plot and save the curves
 plot_and_save_curves(history, filename="curves.png")

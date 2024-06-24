@@ -42,30 +42,41 @@ class CustomDataGenerator(Dataset):
 
     def __len__(self):
         return math.ceil(len(self.x) / self.batch_size)
-
+    
+    
     def __getitem__(self, index):
         start_index = index * self.batch_size
-        end_index = (index + 1) * self.batch_size
+        end_index = min((index + 1) * self.batch_size, len(self.x))
+        
         batch_image_files_path = self.x[start_index:end_index]
         batch_labels = self.y[start_index:end_index]
 
         batch_images = []
         for image_path in batch_image_files_path:
-            image = Image.open(image_path)
-            if image.mode != 'RGB':
-                image = image.convert('RGB')
-            image = self.transforms(image)
-            batch_images.append(image)
+            if not os.path.exists(image_path):
+                print(f"Image path does not exist: {image_path}")
+                continue
+
+            try:
+                image = Image.open(image_path).convert('RGB')
+                image = self.transforms(image)
+                if image is not None:  # Ensure image loading and transformation succeeded
+                    batch_images.append(image)
+                else:
+                    print(f"Failed to load or transform image: {image_path}")
+            except Exception as e:
+                print(f"Error loading image {image_path}: {e}")
+                continue
+
+        if not batch_images:
+            print(f"Empty batch at index {index}, images paths: {batch_image_files_path}")
+            raise ValueError(f"No images loaded for the batch at index {index}")
 
         batch_labels_encoded = self.label_encoder.transform(batch_labels)
         batch_labels_tensor = torch.tensor(batch_labels_encoded, dtype=torch.long)
         return torch.stack(batch_images), batch_labels_tensor
 
-    def on_epoch_end(self):
-        range_items = list(range(len(self.x)))
-        random.shuffle(range_items)
-        self.x = np.array(self.x)[range_items].tolist()
-        self.y = np.array(self.y)[range_items].tolist()
+    
         
         
         
@@ -73,7 +84,7 @@ class CustomModel(nn.Module):
     def __init__(self):
         super(CustomModel, self).__init__()
         self.conv1 = nn.Conv2d(in_channels=3, out_channels=32, kernel_size=3, stride=2)
-        self.conv2 = nn.Conv2d(in_channels=64, out_channels=124, kernel_size=3, stride=2)
+        self.conv2 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, stride=2)
         self.conv3 = nn.Conv2d(in_channels=64, out_channels=124, kernel_size=3, stride=2)
         self.flatten = nn.Flatten()
         

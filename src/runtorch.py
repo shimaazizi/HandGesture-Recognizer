@@ -18,8 +18,8 @@ class CustomDataGenerator(Dataset):
     def __init__(self, x, y, label_encoder, batch_size=32, target_size=(128, 128),
                  rotation_range=20, width_shift_range=0.2, height_shift_range=0.2,
                  zoom_range=0.2, horizontal_flip=True, train=True):
-        self.x = x
-        self.y = y
+        self.x = []
+        self.y = []
         self.label_encoder = label_encoder
         self.batch_size = batch_size
         self.target_size = target_size
@@ -29,7 +29,21 @@ class CustomDataGenerator(Dataset):
         self.zoom_range = zoom_range
         self.horizontal_flip = horizontal_flip
         self.train = train
-        self.classes = set(item.split("_")[0] for item in os.listdir(os.path.dirname(x[0])))
+        self.skipped_images = 0
+        
+        # Filter out broken images during initialization
+        for img_path, label in zip(x, y):
+            if os.path.exists(img_path):
+                try:
+                    with Image.open(img_path) as img:
+                        img.verify()  # Verify the image
+                    self.x.append(img_path)
+                    self.y.append(label)
+                except Exception as e:
+                    print(f"Skipping corrupted image {img_path}: {e}")
+                    self.skipped_images += 1
+        
+        self.classes = set(item.split("_")[0] for item in os.listdir(os.path.dirname(self.x[0])))
         
         # Define data augmentation transforms
         self.transforms = transforms.Compose([
@@ -47,16 +61,8 @@ class CustomDataGenerator(Dataset):
         image_path = self.x[index]
         label = self.y[index]
 
-        if not os.path.exists(image_path):
-            print(f"Image path does not exist: {image_path}")
-            return torch.zeros((3, *self.target_size)), self.label_encoder.transform([label])[0]
-
-        try:
-            image = Image.open(image_path).convert('RGB')
-            image = self.transforms(image)
-        except Exception as e:
-            print(f"Error loading image {image_path}: {e}")
-            return torch.zeros((3, *self.target_size)), self.label_encoder.transform([label])[0]
+        image = Image.open(image_path).convert('RGB')
+        image = self.transforms(image)
 
         label_encoded = self.label_encoder.transform([label])[0]
         return image, label_encoded
@@ -112,6 +118,7 @@ def dataset_split(dataset_path: str, test_split: float = 0.2, val_split: float =
 if __name__ == '__main__':
     dataset_path = "/home/shima/Dataset"
     x_train, y_train, x_val, y_val, x_test, y_test = dataset_split(dataset_path)
+    print("Original data:")
     print("train:", Counter(y_train))
     print("val:", Counter(y_val))
     print("test:", Counter(y_test))
@@ -120,9 +127,15 @@ if __name__ == '__main__':
     label_encoder.fit(y_train + y_val + y_test)
     
     train_dataset = CustomDataGenerator(x_train, y_train, label_encoder, train=True, batch_size=16, target_size=(128, 128))
+    print(f"Skipped images in train dataset: {train_dataset.skipped_images}")
+    
     val_dataset = CustomDataGenerator(x_val, y_val, label_encoder, train=False, batch_size=32, target_size=(128, 128))
+    print(f"Skipped images in validation dataset: {val_dataset.skipped_images}")
+    
     test_dataset = CustomDataGenerator(x_test, y_test, label_encoder, train=False, batch_size=32, target_size=(128, 128))
-
+    print(f"Skipped images in test dataset: {test_dataset.skipped_images}")
+    
+    
     train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=32)
     test_loader = DataLoader(test_dataset, batch_size=32)

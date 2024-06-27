@@ -74,7 +74,7 @@ class CustomModel(nn.Module):
         self.conv2 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, stride=2)
         self.conv3 = nn.Conv2d(in_channels=64, out_channels=124, kernel_size=3, stride=2)
         self.flatten = nn.Flatten()
-        self.fc = nn.Linear(124 * 15 * 15, num_classes)  # Adjust the input size based on your image dimensions
+        self.fc = nn.Linear(124 * 15 * 15, num_classes)  
         
     def forward(self, x):
         x = F.relu(self.conv1(x))
